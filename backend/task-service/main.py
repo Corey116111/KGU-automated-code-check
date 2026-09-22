@@ -1,6 +1,6 @@
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
-from typing import List, Optional
+from typing import Dict, List, Optional
 import uuid
 
 app = FastAPI(title='Task Service', description='Микросервис для управления учебными задачами', version='1.0.0')
@@ -19,35 +19,37 @@ class Task(TaskBase):
 	id: str	# айдишник конкретной задачи
 
 
-fake_database: List[Task] = [
-	Task(
+fake_database: Dict[str, Task] = {
+	'1': Task(
 		id = '1',
 		title='Сумма элементов массива',
 		topic='Массивы',
 		difficulty='Easy',
 		description='Дан массив целых чисел. Найдите сумму всех элементов'
 	),
-	Task(
+	'2': Task(
         	id='2', 
         	title="Обратный связный список", 
         	topic="Списки", 
         	difficulty='Hard', 
         	description="Дан односвязный список. Разверните его так, чтобы последний элемент стал первым."
     	)
-]
+}
 
 @app.get("/api/tasks", response_model=List[Task])
 async def get_all_tasks():
     """Возвращает список всех доступных задач"""
-    return fake_database
+    return list(fake_database.values())
 
 @app.get("/api/tasks/{task_id}", response_model=Task)
 async def get_task_by_id(task_id: str):
 	"""Возвращает конкретную задачу по ее айди"""
-	for task in fake_database:
-		if task.id == task_id:
-			return task
-	raise HTTPException(status_code=404, detail="Задача не найдена")
+	task = fake_database.get(task_id)
+
+	if not task:
+		raise HTTPException(status_code=404, detail="Задача не найдена")
+
+	return task
 
 
 @app.post("/api/tasks", response_model=Task)
@@ -55,8 +57,8 @@ async def create_task(new_task: TaskBase):
 	"""Создает новую задачу и добавляет ее в базу"""
 	task_id = str(uuid.uuid4())
 
-	created_task = Task(id=task_id, **new_task.dict())
+	created_task = Task(id=task_id, **new_task.model_dump())
 
-	fake_database.append(created_task)
+	fake_database[task_id] = created_task
 
 	return created_task
