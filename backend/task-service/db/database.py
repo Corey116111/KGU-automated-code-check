@@ -1,5 +1,5 @@
 from typing import Dict
-from app.models import Task
+from app.models.tasks import Task
 
 fake_database: Dict[str, Task] = {
 	'1': Task(

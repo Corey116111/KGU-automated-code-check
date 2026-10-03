@@ -1,7 +1,7 @@
 from typing import List
 from fastapi import APIRouter, HTTPException
 from db.database import fake_database
-from app.models import Task, TaskBase
+from app.models.tasks import Task, TaskBase
 import uuid
 
 router = APIRouter()
