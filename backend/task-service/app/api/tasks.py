@@ -1,7 +1,7 @@
 from typing import List
 from fastapi import APIRouter, HTTPException
 from db.database import fake_database
-from app.models.tasks import Task, TaskBase
+from app.models.tasks import Task, TaskBase, TaskUpdate
 import uuid
 
 router = APIRouter()
@@ -32,3 +32,23 @@ async def create_task(new_task: TaskBase):
 	fake_database[task_id] = created_task
 
 	return created_task
+
+
+@router.patch("/{task_id}/edit", response_model=Task)
+async def edit_task(task_id: str, payload: TaskUpdate):
+	"""Редактирует существующую задачу и сохраняет ее"""
+	task = fake_database.get(task_id)
+
+	if not task:
+		raise HTTPException(status_code=404, detail="Задача не найдена")
+
+	update_data = payload.model_dump(exclude_unset=True)
+
+	if not update_data:
+		return task
+
+	updated_task = task.model_copy(update=update_data)
+
+	fake_database[task_id] = updated_task
+
+	return updated_task
