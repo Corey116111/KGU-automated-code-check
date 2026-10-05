@@ -1,5 +1,6 @@
 from pydantic import BaseModel
-from typing import Optional
+from typing import Optional, List
+from app.models.tests import TestCase
 
 class TaskBase(BaseModel):
 	title: str
@@ -13,6 +14,7 @@ class TaskBase(BaseModel):
 
 class Task(TaskBase):
 	task_id: str	# айдишник конкретной задачи
+	test_cases: List[TestCase] = []
 
 
 class TaskUpdate(BaseModel):
