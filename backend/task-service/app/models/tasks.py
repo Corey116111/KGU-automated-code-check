@@ -1,27 +1,35 @@
-from pydantic import BaseModel
-from typing import Optional, List
-from app.models.tests import TestCase
-
-class TaskBase(BaseModel):
-	title: str
-	topic: str
-	difficulty: str
-	description: str
-	time_limit: int = 20 # секунды
-	memory_limit: int = 256 # лимит памяти на задачу
-	archived: bool = False
+from sqlalchemy import Table, Column, String, Integer, Boolean, ForeignKey
+from sqlalchemy.orm import relationship
+from db.database import Base  
 
 
-class Task(TaskBase):
-	task_id: str	# айдишник конкретной задачи
-	test_cases: List[TestCase] = []
+task_languages = Table(
+    "task_languages",
+    Base.metadata,
+    Column("task_id", String(36), ForeignKey("tasks.task_id", ondelete="CASCADE"), primary_key=True),
+    Column("language_id", Integer, ForeignKey("languages.language_id", ondelete="CASCADE"), primary_key=True),
+)
 
 
-class TaskUpdate(BaseModel):
-	title: Optional[str] = None
-	topic: Optional[str] = None
-	difficulty: Optional[str] = None
-	description: Optional[str] = None
-	time_limit: Optional[int] = None
-	memory_limit: Optional[int] = None
-	archived: Optional[bool] = None
+class TaskModel(Base):
+    __tablename__ = "tasks"
+
+    task_id = Column(String, primary_key=True, index=True)
+    title = Column(String, nullable=False)
+    topic = Column(String, nullable=False)
+    difficulty = Column(String, nullable=False)
+    description = Column(String, nullable=False)
+    time_limit = Column(Integer, default=20)
+    memory_limit = Column(Integer, default=256)
+    archived = Column(Boolean, default=False)
+
+    test_cases = relationship(
+        "TestCaseModel",
+        back_populates="task",
+        cascade="all, delete-orphan"
+    )
+
+    allowed_languages = relationship(
+        "LanguageModel", 
+        secondary=task_languages
+    )

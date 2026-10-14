@@ -1,44 +1,55 @@
 from typing import List
-from fastapi import APIRouter, HTTPException
-from db.database import fake_database
-from app.models.tasks import Task, TaskBase, TaskUpdate
-from app.models.tests import TestCase, TestCaseBase, TestCaseUpdate
+from fastapi import APIRouter, HTTPException, Depends
+from db.database import get_db
+from sqlalchemy.orm import Session
+from app.schemas.tasks import Task, TaskBase, TaskUpdate
+from app.schemas.tests import TestCase, TestCaseBase, TestCaseUpdate
+from app.models.tasks import TaskModel
+from app.models.tests import TestCaseModel
+from app.models.language import LanguageModel
+from app.schemas.language import Language
 import uuid
+
 
 router = APIRouter()
 
+
 @router.get("", response_model=List[Task], tags=['Tasks'])
-async def get_all_tasks():
+def get_all_tasks(db: Session = Depends(get_db)):
     """Возвращает список всех доступных задач"""
-    return list(fake_database.values())
+
+    return db.query(TaskModel).all()
 
 @router.get("/{task_id}", response_model=Task, tags=['Tasks'])
-async def get_task_by_id(task_id: str):
+def get_task_by_id(task_id: str, db: Session = Depends(get_db)):
 	"""Возвращает конкретную задачу по ее айди"""
-	task = fake_database.get(task_id)
+
+	task = db.query(TaskModel).filter(TaskModel.task_id == task_id).first()
 
 	if not task:
 		raise HTTPException(status_code=404, detail="Задача не найдена")
-
+	
 	return task
 
 
 @router.post("", response_model=Task, tags=['Tasks'])
-async def create_task(new_task: TaskBase):
+def create_task(new_task: TaskBase, db: Session = Depends(get_db)):
 	"""Создает новую задачу и добавляет ее в базу"""
+
 	task_id = str(uuid.uuid4())
+	created_task = TaskModel(task_id=task_id, **new_task.model_dump())
 
-	created_task = Task(id=task_id, **new_task.model_dump())
-
-	fake_database[task_id] = created_task
+	db.add(created_task)
+	db.commit()
+	db.refresh(created_task)
 
 	return created_task
 
 
 @router.patch("/{task_id}/edit", response_model=Task, tags=['Tasks'])
-async def edit_task(task_id: str, payload: TaskUpdate):
+def edit_task(task_id: str, payload: TaskUpdate, db: Session = Depends(get_db)):
 	"""Редактирует существующую задачу и сохраняет ее"""
-	task = fake_database.get(task_id)
+	task = db.query(TaskModel).filter(TaskModel.task_id == task_id).first()
 
 	if not task:
 		raise HTTPException(status_code=404, detail="Задача не найдена")
@@ -48,41 +59,102 @@ async def edit_task(task_id: str, payload: TaskUpdate):
 	if not update_data:
 		return task
 
-	updated_task = task.model_copy(update=update_data)
+	for k, v in update_data.items():
+		setattr(task, k, v)
 
-	fake_database[task_id] = updated_task
+	db.commit()
+	db.refresh(task)
 
-	return updated_task
+	return task
 
 
-@router.delete("/{task_id}", response_model=Task, tags=['Tasks'])
-async def delete_task(task_id: str):
-	if task_id not in fake_database:
+@router.delete("/{task_id}", status_code=204, tags=['Tasks'])
+def delete_task(task_id: str, db: Session = Depends(get_db)):
+	task = db.query(TaskModel).filter(TaskModel.task_id == task_id).first()
+	
+	if not task:
 		raise HTTPException(status_code=404, detail="Задача не найдена")
-	del fake_database[task_id]
-	return {"ok": True, "deleted_id": task_id}
+	
+	db.delete(task)
+	db.commit()
+
+	return 
 
 
 @router.get("/{task_id}/test-cases", response_model=List[TestCase], tags=['Tests'])
-async def get_all_test_cases(task_id: str):
-	pass
-
-
-@router.post("/{task_id}/test-cases", response_model=TestCase, tags=['Tests'])
-async def create_test_case(task_id: str, new_test: TestCaseBase):
-	pass
+def get_all_test_cases(task_id: str, db: Session = Depends(get_db)):
+	"""Возвращает все тест-кейсы для задачи"""
+	return db.query(TestCaseModel).filter(TestCaseModel.task_id == task_id).all()
 
 
 @router.get("/{task_id}/test-cases/{test_id}", response_model=TestCase, tags=['Tests'])
-async def get_test_case(task_id: str, test_id: str):
-	pass
+def get_test_case(task_id: str, test_id: int, db: Session = Depends(get_db)):
+	"""Возвращает указанный тест-кейс для задачи"""
+
+	test_case = db.query(TestCaseModel).filter(TestCaseModel.task_id == task_id, TestCaseModel.test_id == test_id).first()
+
+	if not test_case:
+		raise HTTPException(status_code=404, detail="Тест-кейс не найден")
+
+	return test_case
+
+
+@router.post("/{task_id}/test-cases", response_model=TestCase, tags=['Tests'])
+def create_test_case(task_id: str, new_test: TestCaseBase, db: Session = Depends(get_db)):
+    """Создаёт тест-кейс для указанной задачи"""
+    task = db.query(TaskModel).filter(TaskModel.task_id == task_id).first()
+    if not task:
+        raise HTTPException(status_code=404, detail="Задача не найдена")
+
+    created_test_case = TestCaseModel(
+        task_id=task_id,
+        **new_test.model_dump(),
+    )
+
+    db.add(created_test_case)
+    db.commit()
+    db.refresh(created_test_case)
+
+    return created_test_case
 
 
 @router.patch("/{task_id}/test-cases/{test_id}", response_model=TestCase, tags=['Tests'])
-async def update_test_case(task_id: str, test_id: str, payload: TestCaseUpdate):
-	pass
+def update_test_case(task_id: str, test_id: int, payload: TestCaseUpdate, db: Session = Depends(get_db)):
+	"""Редактирует существующий тест-кейс и возвращает его"""
+	test_case = db.query(TestCaseModel).filter(TestCaseModel.task_id == task_id, TestCaseModel.test_id == test_id).first()
+
+	if not test_case:
+		raise HTTPException(status_code=404, detail="Тест-кейс не найден")
+
+	update_data = payload.model_dump(exclude_unset=True)
+
+	if not update_data:
+		return test_case
+
+	for k, v in update_data.items():
+		setattr(test_case, k, v)
+
+	db.commit()
+	db.refresh(test_case)
+
+	return test_case
 
 
-@router.delete("/{task_id}/test-cases/{test_id}", response_model=TestCase, tags=['Tests'])
-async def delete_test_case(task_id: str, test_id: str):
-	pass
+@router.delete("/{task_id}/test-cases/{test_id}", status_code=204, tags=['Tests'])
+def delete_test_case(task_id: str, test_id: int, db: Session = Depends(get_db)):
+	test_case = db.query(TestCaseModel).filter(TestCaseModel.task_id == task_id, TestCaseModel.test_id == test_id).first()
+	
+	if not test_case:
+		raise HTTPException(status_code=404, detail="Тест-кейс не найден")
+	
+	db.delete(test_case)
+	db.commit()
+
+	return 
+
+
+@router.get("/languages", response_model=List[Language])
+def get_languages(db: Session = Depends(get_db)):
+    """Возвращает список языков программирования"""
+	
+    return db.query(LanguageModel).all()

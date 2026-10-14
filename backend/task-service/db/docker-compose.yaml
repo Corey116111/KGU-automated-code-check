@@ -1,0 +1,29 @@
+version: '3.8'
+
+services:
+  postgres_db:
+    image: postgres:15-alpine
+    container_name: task-service-cont
+    environment:
+      POSTGRES_USER: task
+      POSTGRES_PASSWORD: task
+      POSTGRES_DB: task
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+  app:
+    build: .
+    container_name: task-fastapi-cont
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env 
+    environment:
+      - DB_HOST=postgres_db 
+    depends_on:
+      - postgres_db
+
+volumes:
+  pgdata:

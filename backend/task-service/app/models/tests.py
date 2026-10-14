@@ -1,17 +1,14 @@
-from pydantic import BaseModel
-from typing import Optional
+from sqlalchemy import Column, String, Integer, Boolean, ForeignKey
+from sqlalchemy.orm import relationship
+from db.database import Base  
 
-class TestCaseBase(BaseModel):
-    input_data: str          # входные данные
-    expected_output: str     # ожидаемый результат
-    is_public: bool = True         # показывать ли студенту
+class TestCaseModel(Base):
+    __tablename__ = "test_cases"
 
+    test_id = Column(Integer, primary_key=True, index=True)
+    task_id = Column(String, ForeignKey("tasks.task_id", ondelete="CASCADE"), nullable=False)
+    input_data = Column(String, nullable=False)
+    expected_output = Column(String, nullable=False)   
+    is_public = Column(Boolean, default=True, nullable=False)  
 
-class TestCase(TestCaseBase):
-    test_id: str
-
-
-class TestCaseUpdate(BaseModel):
-    input_data: Optional[str] = None 
-    expected_output: Optional[str] = None  
-    is_public: Optional[bool] = None      
+    task = relationship("TaskModel", back_populates="test_cases")
