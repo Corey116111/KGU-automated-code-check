@@ -153,7 +153,7 @@ def delete_test_case(task_id: str, test_id: int, db: Session = Depends(get_db)):
 	return 
 
 
-@router.get("/languages", response_model=List[Language])
+@router.get("/languages", response_model=List[Language], tags=['Languages'])
 def get_languages(db: Session = Depends(get_db)):
     """Возвращает список языков программирования"""
 	
