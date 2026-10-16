@@ -70,6 +70,7 @@ def edit_task(task_id: str, payload: TaskUpdate, db: Session = Depends(get_db)):
 
 @router.delete("/{task_id}", status_code=204, tags=['Tasks'])
 def delete_task(task_id: str, db: Session = Depends(get_db)):
+	"""Удаляет задачу из базы данных"""
 	task = db.query(TaskModel).filter(TaskModel.task_id == task_id).first()
 	
 	if not task:
@@ -142,6 +143,7 @@ def update_test_case(task_id: str, test_id: int, payload: TestCaseUpdate, db: Se
 
 @router.delete("/{task_id}/test-cases/{test_id}", status_code=204, tags=['Tests'])
 def delete_test_case(task_id: str, test_id: int, db: Session = Depends(get_db)):
+	"""Удаляет тест-кейс у задачи из базы данных"""
 	test_case = db.query(TestCaseModel).filter(TestCaseModel.task_id == task_id, TestCaseModel.test_id == test_id).first()
 	
 	if not test_case:
